@@ -1,0 +1,31 @@
+{
+  "system": {
+    "device_name": "ESP32-HTTP-Logger",
+    "core0_frequency": 240,
+    "core1_frequency": 240
+  },
+  "wifi": {
+    "ssid": "MyNetwork",
+    "password": "Wifi2024Secure!",
+    "ap_mode": false,
+    "ap_ssid": "ESP32-Config",
+    "ap_password": "config123"
+  },
+  "sensors": [
+    {
+      "id": "temperature",
+      "type": "analog",
+      "pin": 34,
+      "sample_rate": 5000,
+      "enabled": true
+    }
+  ],
+  "communication": {
+    "protocol": "http",
+    "http": {
+      "endpoint": "https://api.example.com/sensors/data",
+      "method": "POST",
+      "auth_token": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJkZXZpY2VfaWQiOiJlc3AzMi0wMDEifQ.dGVzdF90b2tlbl9mb3JfZXhhbXBsZQ"
+    }
+  }
+}

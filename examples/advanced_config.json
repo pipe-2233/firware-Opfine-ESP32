@@ -1,0 +1,99 @@
+{
+  "system": {
+    "device_name": "ESP32-Advanced-IoT-Hub",
+    "core0_frequency": 240,
+    "core1_frequency": 240
+  },
+  "wifi": {
+    "ssid": "MyWiFiNetwork",
+    "password": "MySecurePassword",
+    "ap_mode": false,
+    "ap_ssid": "ESP32-Config",
+    "ap_password": "config123"
+  },
+  "sensors": [
+    {
+      "id": "temp_humid_bme280",
+      "type": "i2c",
+      "pin": 0,
+      "i2c_address": 118,
+      "sample_rate": 5000,
+      "enabled": true,
+      "extra_params": "{\"sensor_model\":\"BME280\",\"altitude\":100}"
+    },
+    {
+      "id": "soil_moisture_1",
+      "type": "analog",
+      "pin": 34,
+      "mode": "input",
+      "sample_rate": 10000,
+      "enabled": true,
+      "extra_params": "{\"calibration\":{\"dry\":3800,\"wet\":1200}}"
+    },
+    {
+      "id": "soil_moisture_2",
+      "type": "analog",
+      "pin": 35,
+      "mode": "input",
+      "sample_rate": 10000,
+      "enabled": true
+    },
+    {
+      "id": "light_sensor",
+      "type": "analog",
+      "pin": 32,
+      "mode": "input",
+      "sample_rate": 15000,
+      "enabled": true
+    },
+    {
+      "id": "door_sensor",
+      "type": "digital",
+      "pin": 23,
+      "mode": "input_pullup",
+      "sample_rate": 100,
+      "enabled": true
+    },
+    {
+      "id": "pir_motion",
+      "type": "digital",
+      "pin": 22,
+      "mode": "input",
+      "sample_rate": 200,
+      "enabled": true
+    },
+    {
+      "id": "gps_module",
+      "type": "uart",
+      "pin": 0,
+      "uart_rx": 16,
+      "uart_tx": 17,
+      "uart_baudrate": 9600,
+      "sample_rate": 1000,
+      "enabled": true,
+      "extra_params": "{\"protocol\":\"NMEA\"}"
+    },
+    {
+      "id": "co2_sensor_mhz19",
+      "type": "uart",
+      "pin": 0,
+      "uart_rx": 18,
+      "uart_tx": 19,
+      "uart_baudrate": 9600,
+      "sample_rate": 30000,
+      "enabled": true,
+      "extra_params": "{\"sensor_model\":\"MH-Z19\"}"
+    }
+  ],
+  "communication": {
+    "protocol": "mqtt",
+    "mqtt": {
+      "broker": "mqtt.example.com",
+      "port": 8883,
+      "user": "iot_device",
+      "password": "SecurePassword123!",
+      "topic_prefix": "smart_home/zone1/",
+      "client_id": "ESP32-Advanced-IoT-Hub"
+    }
+  }
+}

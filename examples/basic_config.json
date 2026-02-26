@@ -1,0 +1,43 @@
+{
+  "system": {
+    "device_name": "ESP32-Basic-Node",
+    "core0_frequency": 240,
+    "core1_frequency": 240
+  },
+  "wifi": {
+    "ssid": "",
+    "password": "",
+    "ap_mode": true,
+    "ap_ssid": "ESP32-Config",
+    "ap_password": "config123"
+  },
+  "sensors": [
+    {
+      "id": "temperature_sensor",
+      "type": "analog",
+      "pin": 34,
+      "mode": "input",
+      "sample_rate": 2000,
+      "enabled": true
+    },
+    {
+      "id": "motion_detector",
+      "type": "digital",
+      "pin": 23,
+      "mode": "input_pullup",
+      "sample_rate": 100,
+      "enabled": true
+    }
+  ],
+  "communication": {
+    "protocol": "mqtt",
+    "mqtt": {
+      "broker": "192.168.1.100",
+      "port": 1883,
+      "user": "",
+      "password": "",
+      "topic_prefix": "home/sensors/",
+      "client_id": "ESP32-Basic-Node"
+    }
+  }
+}
