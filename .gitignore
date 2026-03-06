@@ -33,3 +33,10 @@ data/config.json.bak
 # Credentials (nunca commitear)
 credentials.h
 secrets.h
+data/config.json
+
+# Flasher build output
+flasher/dist/
+flasher/build/
+flasher/__pycache__/
+flasher/*.spec

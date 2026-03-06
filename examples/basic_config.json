@@ -8,8 +8,8 @@
     "ssid": "",
     "password": "",
     "ap_mode": true,
-    "ap_ssid": "ESP32-Config",
-    "ap_password": "config123"
+    "ap_ssid": "MONTOYA",
+    "ap_password": "29332657M"
   },
   "sensors": [
     {

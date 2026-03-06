@@ -167,8 +167,8 @@ bool ConfigManager::parseJson(const JsonDocument& doc) {
     // Sensors
     sensors.clear();
     if (doc.containsKey("sensors")) {
-        JsonArray sensorsArray = doc["sensors"];
-        for (JsonObject sensorObj : sensorsArray) {
+        JsonArrayConst sensorsArray = doc["sensors"].as<JsonArrayConst>();
+        for (JsonObjectConst sensorObj : sensorsArray) {
             SensorConfig sensor;
             sensor.id = sensorObj["id"] | "";
             sensor.type = sensorObj["type"] | "digital";
