@@ -31,6 +31,7 @@ FIRMWARE_FILES = [
     "bootloader.bin",
     "partitions.bin",
     "boot_app0.bin",
+    "mkspiffs_espressif32_arduino.exe",
 ]
 
 
@@ -464,7 +465,8 @@ class Flasher(ctk.CTk):
         self._clear_log()
         threading.Thread(target=self._download_worker, daemon=True).start()
 
-    def _download_worker(self):
+    def _do_download(self):
+        """Descarga los bins desde GitHub. Retorna True si todo OK. Se puede llamar desde cualquier hilo."""
         bins_dir = Path(__file__).parent / "bins"
         bins_dir.mkdir(exist_ok=True)
         ok = True
@@ -482,6 +484,10 @@ class Flasher(ctk.CTk):
             except Exception as ex:
                 self._log(f"       ❌ Error descargando {fname}: {ex}")
                 ok = False
+        return ok
+
+    def _download_worker(self):
+        ok = self._do_download()
         if ok:
             self._log("\n✅  ¡Firmware descargado correctamente!")
             self._log("    Ahora conecta tu ESP32 y presiona ⚡ FLASHEAR.")
@@ -683,11 +689,19 @@ class Flasher(ctk.CTk):
                     missing.append(label)
 
             if missing:
-                raise FileNotFoundError(
-                    f"Faltan archivos compilados: {', '.join(missing)}\n\n"
-                    "Ejecuta 'pio run' en el proyecto para compilar el firmware,\n"
-                    "luego vuelve a presionar ⚡ FLASHEAR."
-                )
+                self._log(f"\n⚠️   Faltan binarios: {', '.join(missing)}")
+                self._log("    Descargando firmware automáticamente...\n")
+                ok = self._do_download()
+                if not ok:
+                    raise FileNotFoundError(
+                        "No se pudieron descargar los archivos necesarios.\n"
+                        "Verifica tu conexión a internet y vuelve a intentarlo."
+                    )
+                # Re-resolver rutas tras la descarga
+                boot_bin = self._resolve_bin("bootloader.bin")
+                part_bin = self._resolve_bin("partitions.bin")
+                app0_bin = self._resolve_app0()
+                fw_bin   = self._resolve_bin("firmware.bin")
             self._log(f"    ✅ Binarios del firmware encontrados")
 
             # ── 4. Flashear con esptool ───────────────
@@ -699,8 +713,7 @@ class Flasher(ctk.CTk):
             self._log("─" * 46)
             self._log("    Conectando con la ESP32...")
 
-            esptool_cmd = self._find_esptool()
-            cmd = esptool_cmd + [
+            esptool_args = [
                 "--chip", "esp32",
                 "--port", port,
                 "--baud", "921600",
@@ -716,39 +729,7 @@ class Flasher(ctk.CTk):
                 "0x10000",        fw_bin,
                 hex(SPIFFS_ADDR), spiffs_bin,
             ]
-
-            proc = subprocess.Popen(
-                cmd, stdout=subprocess.PIPE,
-                stderr=subprocess.STDOUT, text=True, bufsize=1,
-            )
-            last_pct = -1
-            for line in proc.stdout:
-                line = line.rstrip()
-                if not line:
-                    continue
-                m = re.search(r'\((\d+)\s*%\)', line)
-                if m:
-                    pct = int(m.group(1))
-                    if pct != last_pct and pct % 10 == 0:
-                        self._log(f"    📤 Progreso: {pct}%")
-                        last_pct = pct
-                elif any(k in line for k in ("Chip is", "MAC:", "Features:")):
-                    self._log(f"    {line}")
-                elif "error" in line.lower():
-                    self._log(f"    ❌ {line}")
-
-            proc.wait()
-            if proc.returncode != 0:
-                raise RuntimeError(
-                    "El flasheo falló. Posibles causas:\n\n"
-                    "1. Desconecta y reconecta el cable USB de la ESP32\n"
-                    "   luego pulsa 🔄 Actualizar y vuelve a intentarlo.\n\n"
-                    "2. Cierra el monitor serial si está abierto en otro programa.\n\n"
-                    "3. Si sigue fallando: mantén presionado el botón BOOT\n"
-                    "   de la ESP32, presiona RESET, suelta RESET, suelta BOOT\n"
-                    "   y luego presiona ⚡ FLASHEAR inmediatamente."
-                )
-
+            self._run_esptool(esptool_args)
             self._log("\n✅  ¡Firmware subido correctamente!")
             self._log("\n🔄  Esperando que la ESP32 arranque y se conecte al WiFi...")
 
@@ -820,44 +801,81 @@ class Flasher(ctk.CTk):
     # ═══════════════════════════════════════════════════════════════
 
     def _find_mkspiffs(self) -> str:
-        # 1. Empaquetado en el .exe (cualquier variante de nombre)
+        # 1. Carpeta bins/ (descargado o empaquetado)
         for candidate in Path(BIN_DIR).glob("mkspiffs*.exe"):
             return str(candidate)
-        # 2. Paquetes de PlatformIO (~/.platformio/packages/tool-mkspiffs*)
-        #    Prueba primero la variante esp32+arduino, luego cualquier otra.
+        # 2. Paquetes de PlatformIO (desarrollo local)
         pio_pkg = Path.home() / ".platformio" / "packages"
-        preferred = [
-            "mkspiffs_espressif32_arduino.exe",
-            "mkspiffs_espressif32_espidf.exe",
-            "mkspiffs.exe",
-        ]
         for pkg in pio_pkg.glob("tool-mkspiffs*"):
-            for name in preferred:
+            for name in ["mkspiffs_espressif32_arduino.exe", "mkspiffs.exe"]:
                 exe = pkg / name
                 if exe.exists():
                     return str(exe)
-            # Fallback: primer .exe encontrado en el paquete
             for exe in pkg.glob("mkspiffs*.exe"):
                 return str(exe)
         raise FileNotFoundError(
             "No se encontró mkspiffs.exe.\n"
-            "Ejecuta 'pio run --target uploadfs' en el proyecto al menos una vez\n"
-            "para que PlatformIO lo descargue automáticamente."
+            "Usa el botón 📥 Descargar firmware para obtenerlo automáticamente."
         )
 
-    def _find_esptool(self) -> list:
-        # 1. Empaquetado
-        p = Path(BIN_DIR) / "esptool.exe"
-        if p.exists():
-            return [str(p)]
-        # 2. PlatformIO tool-esptoolpy
+    def _run_esptool(self, args: list):
+        """
+        Ejecuta esptool y redirige su salida al log.
+        Funciona tanto en modo .py como en .exe empaquetado con PyInstaller.
+        """
+        import io, contextlib
+
+        class _LineWriter:
+            """Convierte escrituras de stream en llamadas line-by-line al log."""
+            def __init__(self, cb):
+                self._buf = ""
+                self._cb  = cb
+            def write(self, text):
+                self._buf += text
+                while "\n" in self._buf:
+                    line, self._buf = self._buf.split("\n", 1)
+                    if line.strip():
+                        self._cb(line)
+            def flush(self):
+                pass
+
+        writer = _LineWriter(self._log)
+
+        # Si estamos dentro del exe (frozen) o la librería esptool está disponible,
+        # la llamamos directamente como API Python (sin subprocess).
+        try:
+            import esptool
+            with contextlib.redirect_stdout(writer):
+                with contextlib.redirect_stderr(writer):
+                    try:
+                        esptool.main(args)
+                    except SystemExit as e:
+                        if e.code not in (None, 0):
+                            raise RuntimeError(f"esptool terminó con error (código {e.code})")
+            return
+        except ImportError:
+            pass
+
+        # Fallback: subprocess (modo desarrollo con Python del sistema)
         pio_pkg = Path.home() / ".platformio" / "packages"
+        cmd = None
         for pkg in pio_pkg.glob("tool-esptoolpy*"):
             script = pkg / "esptool.py"
             if script.exists():
-                return [sys.executable, str(script)]
-        # 3. Módulo Python instalado
-        return [sys.executable, "-m", "esptool"]
+                cmd = [sys.executable, str(script)] + args
+                break
+        if cmd is None:
+            cmd = [sys.executable, "-m", "esptool"] + args
+
+        proc = subprocess.Popen(cmd, stdout=subprocess.PIPE,
+                                stderr=subprocess.STDOUT, text=True, bufsize=1)
+        for line in proc.stdout:
+            line = line.rstrip()
+            if line:
+                self._log(f"    {line}")
+        proc.wait()
+        if proc.returncode != 0:
+            raise RuntimeError(f"esptool terminó con error (código {proc.returncode})")
 
 
 # ─────────────────────────────────────────────────────────────────────────────
